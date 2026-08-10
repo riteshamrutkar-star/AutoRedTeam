@@ -1,0 +1,1 @@
+"""AutoRedTeam Application Package."""
