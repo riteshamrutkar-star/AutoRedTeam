@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autoredteam"
-version = "0.1.0"
+version = "0.2.0"
 description = "Autonomous LLM-based API security testing and red-team research framework"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,6 +13,9 @@ dependencies = [
     "uvicorn[standard]>=0.28.0",
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.0",
+    "pyyaml>=6.0.1",
+    "python-multipart>=0.0.9",
+    "openapi-spec-validator>=0.7.0",
 ]
 
 [project.optional-dependencies]

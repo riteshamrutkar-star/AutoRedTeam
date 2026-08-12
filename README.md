@@ -2,19 +2,33 @@
 
 Autonomous LLM-based API security testing and red-team research framework.
 
-> [!NOTE]
-> **Phase 1 Baseline**: This repository currently contains Phase 1: project foundation and repository readiness. Later phases will introduce OpenAPI ingestion, LLM reasoning, sandboxed execution, vulnerability classification, and reporting features.
+---
+
+## Overview
+
+AutoRedTeam is an autonomous LLM red-teaming research prototype designed to ingest API specifications, normalize them into structured domain models, and perform automated security testing in controlled environments.
+
+* **Phase 1**: Project Foundation & Repository Readiness (Completed)
+* **Phase 2**: OpenAPI/Swagger Intelligence & Ingestion Layer (Completed)
 
 ---
 
-## Features (Phase 1)
+## Features
 
-* **FastAPI Skeleton**: Async web framework setup with lifespan logging.
-* **Centralized Configuration**: Environment-based settings management via `pydantic-settings`.
-* **Structured Logging**: Standardized console log formatting across the app lifecycle.
-* **Health & Root Endpoints**: `/` and `/health` endpoints for readiness checks.
-* **Containerization**: `Dockerfile` and `docker-compose.yml` pre-configured.
-* **Testing Setup**: `pytest` suite testing endpoint functionality.
+### Phase 1: Core Foundation
+* **FastAPI Skeleton**: Async web application with lifespan logging.
+* **Centralized Configuration**: Environment-driven settings via `pydantic-settings`.
+* **Structured Logging**: Standardized console log formatting.
+* **System Health Endpoints**: `/` and `/health` readiness routes.
+* **Docker Support**: Containerized deployment via `Dockerfile` and `docker-compose.yml`.
+
+### Phase 2: OpenAPI/Swagger Ingestion & Intelligence
+* **Multi-Format Ingestion**: Supports `.json`, `.yaml`, and `.yml` OpenAPI specifications.
+* **OpenAPI 3.x Support**: Ingests and validates OpenAPI 3.0.x and 3.1.x documents. Rejects non-3.x specifications (e.g. Swagger 2.0).
+* **Local Reference Dereferencing**: Resolves internal `$ref` pointers (e.g. `#/components/schemas/...`) with cycle protection.
+* **Rich Schema Normalization**: Preserves primitive types, nested objects, array items, formats, enums, defaults, validation constraints, and raw schema objects.
+* **Effective Security Requirements**: Implements global-vs-operation security inheritance semantics.
+* **Ingestion API**: `POST /api/v1/specifications/parse` and `POST /api/v1/specifications/validate` endpoints.
 
 ---
 
@@ -29,16 +43,37 @@ AutoRedTeam/
 │   │   ├── __init__.py
 │   │   └── routes/
 │   │       ├── __init__.py
-│   │       └── health.py
-│   └── core/
+│   │       ├── health.py
+│   │       └── specifications.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── exceptions.py
+│   │   └── logging.py
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   └── spec.py
+│   └── services/
 │       ├── __init__.py
-│       ├── config.py
-│       └── logging.py
+│       └── openapi/
+│           ├── __init__.py
+│           ├── loader.py
+│           ├── normalizer.py
+│           ├── resolver.py
+│           └── validator.py
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py
 │   ├── test_health.py
-│   └── test_main.py
+│   ├── test_loader.py
+│   ├── test_main.py
+│   ├── test_normalizer.py
+│   ├── test_resolver.py
+│   ├── test_spec_routes.py
+│   └── fixtures/
+│       ├── petstore_openapi.yaml
+│       ├── invalid_yaml.yaml
+│       └── swagger2_spec.json
 ├── .env.example
 ├── Dockerfile
 ├── docker-compose.yml
@@ -54,11 +89,9 @@ AutoRedTeam/
 
 ### 1. Prerequisites
 * Python 3.11+
-* Docker & Docker Compose (optional for local container execution)
+* Docker & Docker Compose (optional)
 
 ### 2. Environment Setup
-
-Clone the repository and set up a virtual environment:
 
 ```bash
 # Create virtual environment
@@ -69,42 +102,104 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 # Linux/macOS:
 source .venv/bin/activate
-```
 
-### 3. Install Dependencies
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 4. Configuration
-
-Copy `.env.example` to `.env`:
-
-```bash
-cp .env.example .env
-```
-
----
-
-## Running the Application
-
-### Running Locally with Uvicorn
+### 3. Running the Application
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-Access the API:
-* **Root Endpoint**: [http://localhost:8000/](http://localhost:8000/)
+Access:
+* **Interactive API Docs (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 * **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
-* **Swagger UI Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+---
+
+## Ingestion API Usage
+
+### Parse and Normalize Specification
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/specifications/parse" \
+  -H "accept: application/json" \
+  -F "file=@tests/fixtures/petstore_openapi.yaml"
+```
+
+**Example Response**:
+
+```json
+{
+  "metadata": {
+    "title": "PetStore Test API",
+    "version": "1.2.0",
+    "description": "Evaluation OpenAPI specification for AutoRedTeam testing."
+  },
+  "servers": [
+    {
+      "url": "https://api.petstore.example.com/v1",
+      "description": "Production server"
+    }
+  ],
+  "security_schemes": {
+    "BearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearer_format": "JWT"
+    }
+  },
+  "endpoints": [
+    {
+      "path": "/users",
+      "method": "GET",
+      "operation_id": "listUsers",
+      "summary": "List all users",
+      "tags": ["Users"],
+      "parameters": [
+        {
+          "name": "page",
+          "location": "query",
+          "required": false,
+          "schema_def": {
+            "type": "integer",
+            "default": 1,
+            "minimum": 1
+          }
+        }
+      ],
+      "security": [{"BearerAuth": []}]
+    }
+  ]
+}
+```
+
+### Validate Specification
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/specifications/validate" \
+  -H "accept: application/json" \
+  -F "file=@tests/fixtures/petstore_openapi.yaml"
+```
+
+**Example Response**:
+
+```json
+{
+  "valid": true,
+  "title": "PetStore Test API",
+  "version": "1.2.0",
+  "endpoint_count": 3
+}
+```
 
 ---
 
 ## Running Tests
 
-Run the test suite using `pytest`:
+Execute the complete test suite:
 
 ```bash
 pytest
@@ -114,25 +209,23 @@ pytest
 
 ## Running with Docker
 
-### Using Docker Compose
-
 ```bash
 docker-compose up --build
 ```
 
-### Using Docker Directly
+---
 
-```bash
-docker build -t autoredteam:latest .
-docker run -p 8000:8000 autoredteam:latest
-```
+## Known Limitations (Phase 2)
+
+* **External References**: Only internal local `$ref` pointers (starting with `#/`) are resolved. External URL references are rejected with an explicit error.
+* **Specification Version**: Exclusively supports OpenAPI 3.x. Swagger 2.0 specifications are rejected.
 
 ---
 
-## Roadmap / Future Phases
+## Roadmap
 
-* **Phase 2**: OpenAPI/Swagger Specification Ingestion & Schema Parsing
-* **Phase 3**: LLM-driven Test Case & Payload Generation
-* **Phase 4**: Sandboxed Test Execution Engine
-* **Phase 5**: Response Analysis & Vulnerability Classification (OWASP API Top 10)
-* **Phase 6**: Coverage & Security Reporting Dashboard
+* **Phase 1**: Project Foundation & Repository Readiness (Done)
+* **Phase 2**: OpenAPI/Swagger Intelligence & Ingestion Layer (Done)
+* **Phase 3**: Security Test-Case Modeling & Generation (Future)
+* **Phase 4**: Sandboxed Execution Engine (Future)
+* **Phase 5**: Response Analysis & Vulnerability Reporting (Future)
