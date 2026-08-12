@@ -1,7 +1,12 @@
 from fastapi import APIRouter
 
+from app.schemas.generated_test import (
+    GenerateSecurityTestsRequest,
+    GenerateSecurityTestsResponse,
+)
 from app.schemas.security_test import ApplicableTestResult, TestTemplate
 from app.schemas.spec import NormalizedApiSpec
+from app.services.llm.generator import SecurityTestGenerator
 from app.services.security_tests.applicability import applicability_engine
 from app.services.security_tests.catalogue import catalogue_registry
 
@@ -28,3 +33,17 @@ def get_catalogue() -> list[TestTemplate]:
 def evaluate_applicable_tests(spec: NormalizedApiSpec) -> list[ApplicableTestResult]:
     """Evaluate applicable security test instances for an API specification."""
     return applicability_engine.evaluate_spec(spec)
+
+
+@router.post(
+    "/generate",
+    response_model=GenerateSecurityTestsResponse,
+    summary="Generate concrete security test plans using LLM reasoning",
+    description="Generate structured, declarative, endpoint-specific security test plans from candidate applicable tests using configured LLM provider.",
+)
+async def generate_security_tests(
+    request: GenerateSecurityTestsRequest,
+) -> GenerateSecurityTestsResponse:
+    """Generate structured security test plans from applicable candidates."""
+    generator = SecurityTestGenerator()
+    return await generator.generate_tests(request)
