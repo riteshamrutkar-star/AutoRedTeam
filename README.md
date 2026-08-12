@@ -6,10 +6,11 @@ Autonomous LLM-based API security testing and red-team research framework.
 
 ## Overview
 
-AutoRedTeam is an autonomous LLM red-teaming research prototype designed to ingest API specifications, normalize them into structured domain models, and perform automated security testing in controlled environments.
+AutoRedTeam is an autonomous LLM red-teaming research prototype designed to ingest API specifications, normalize them into structured domain models, and model security tests for evaluation in controlled environments.
 
 * **Phase 1**: Project Foundation & Repository Readiness (Completed)
 * **Phase 2**: OpenAPI/Swagger Intelligence & Ingestion Layer (Completed)
+* **Phase 3**: Security Test Model & Test Catalogue (Completed)
 
 ---
 
@@ -22,13 +23,20 @@ AutoRedTeam is an autonomous LLM red-teaming research prototype designed to inge
 * **System Health Endpoints**: `/` and `/health` readiness routes.
 * **Docker Support**: Containerized deployment via `Dockerfile` and `docker-compose.yml`.
 
-### Phase 2: OpenAPI/Swagger Ingestion & Intelligence
-* **Multi-Format Ingestion**: Supports `.json`, `.yaml`, and `.yml` OpenAPI specifications.
+### Phase 2: OpenAPI Ingestion & Intelligence
+* **Multi-Format Ingestion**: Ingests `.json`, `.yaml`, and `.yml` OpenAPI specifications.
 * **OpenAPI 3.x Support**: Ingests and validates OpenAPI 3.0.x and 3.1.x documents. Rejects non-3.x specifications (e.g. Swagger 2.0).
 * **Local Reference Dereferencing**: Resolves internal `$ref` pointers (e.g. `#/components/schemas/...`) with cycle protection.
 * **Rich Schema Normalization**: Preserves primitive types, nested objects, array items, formats, enums, defaults, validation constraints, and raw schema objects.
 * **Effective Security Requirements**: Implements global-vs-operation security inheritance semantics.
 * **Ingestion API**: `POST /api/v1/specifications/parse` and `POST /api/v1/specifications/validate` endpoints.
+
+### Phase 3: Security Test Model & Catalogue
+* **Typed Security Domain Model**: Structured `SecurityTestCase`, `TestTemplate`, `ApplicableTestResult`, `TestTarget`, `TestStrategy`, `InputSpecification`, `ExpectedBehavior`, and `EvidenceRequirements`.
+* **Catalogue / Instance Separation**: Keeps catalogue templates immutable (`TestTemplate`) while generating endpoint-specific test results (`ApplicableTestResult`).
+* **Feature Extraction**: Centralized parameter and endpoint feature extractor (`extract_endpoint_features`) analyzing schema types, formats, locations, and constraints.
+* **Deterministic Applicability Engine**: Evaluates `NormalizedApiSpec` against catalogue prerequisites and returns reproducible test results with structured applicability reasons.
+* **Security Test API**: `GET /api/v1/security-tests/catalogue` and `POST /api/v1/security-tests/applicable` endpoints.
 
 ---
 
@@ -44,6 +52,7 @@ AutoRedTeam/
 │   │   └── routes/
 │   │       ├── __init__.py
 │   │       ├── health.py
+│   │       ├── security_tests.py
 │   │       └── specifications.py
 │   ├── core/
 │   │   ├── __init__.py
@@ -52,23 +61,33 @@ AutoRedTeam/
 │   │   └── logging.py
 │   ├── schemas/
 │   │   ├── __init__.py
+│   │   ├── security_test.py
 │   │   └── spec.py
 │   └── services/
 │       ├── __init__.py
-│       └── openapi/
+│       ├── openapi/
+│       │   ├── __init__.py
+│       │   ├── loader.py
+│       │   ├── normalizer.py
+│       │   ├── resolver.py
+│       │   └── validator.py
+│       └── security_tests/
 │           ├── __init__.py
-│           ├── loader.py
-│           ├── normalizer.py
-│           ├── resolver.py
-│           └── validator.py
+│           ├── applicability.py
+│           ├── catalogue.py
+│           └── features.py
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py
+│   ├── test_applicability.py
+│   ├── test_catalogue.py
 │   ├── test_health.py
 │   ├── test_loader.py
 │   ├── test_main.py
 │   ├── test_normalizer.py
 │   ├── test_resolver.py
+│   ├── test_security_test_models.py
+│   ├── test_security_test_routes.py
 │   ├── test_spec_routes.py
 │   └── fixtures/
 │       ├── petstore_openapi.yaml
@@ -119,80 +138,26 @@ Access:
 
 ---
 
-## Ingestion API Usage
+## API Endpoints Usage
 
-### Parse and Normalize Specification
+### 1. Get Security Test Catalogue
 
 ```bash
+curl -X GET "http://localhost:8000/api/v1/security-tests/catalogue" \
+  -H "accept: application/json"
+```
+
+### 2. Evaluate Applicable Security Tests
+
+```bash
+# First parse an OpenAPI spec to get NormalizedApiSpec JSON
 curl -X POST "http://localhost:8000/api/v1/specifications/parse" \
-  -H "accept: application/json" \
-  -F "file=@tests/fixtures/petstore_openapi.yaml"
-```
+  -F "file=@tests/fixtures/petstore_openapi.yaml" > spec.json
 
-**Example Response**:
-
-```json
-{
-  "metadata": {
-    "title": "PetStore Test API",
-    "version": "1.2.0",
-    "description": "Evaluation OpenAPI specification for AutoRedTeam testing."
-  },
-  "servers": [
-    {
-      "url": "https://api.petstore.example.com/v1",
-      "description": "Production server"
-    }
-  ],
-  "security_schemes": {
-    "BearerAuth": {
-      "type": "http",
-      "scheme": "bearer",
-      "bearer_format": "JWT"
-    }
-  },
-  "endpoints": [
-    {
-      "path": "/users",
-      "method": "GET",
-      "operation_id": "listUsers",
-      "summary": "List all users",
-      "tags": ["Users"],
-      "parameters": [
-        {
-          "name": "page",
-          "location": "query",
-          "required": false,
-          "schema_def": {
-            "type": "integer",
-            "default": 1,
-            "minimum": 1
-          }
-        }
-      ],
-      "security": [{"BearerAuth": []}]
-    }
-  ]
-}
-```
-
-### Validate Specification
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/specifications/validate" \
-  -H "accept: application/json" \
-  -F "file=@tests/fixtures/petstore_openapi.yaml"
-```
-
-**Example Response**:
-
-```json
-{
-  "valid": true,
-  "title": "PetStore Test API",
-  "version": "1.2.0",
-  "endpoint_count": 3
-}
+# Pass NormalizedApiSpec to /security-tests/applicable
+curl -X POST "http://localhost:8000/api/v1/security-tests/applicable" \
+  -H "Content-Type: application/json" \
+  -d @spec.json
 ```
 
 ---
@@ -207,18 +172,11 @@ pytest
 
 ---
 
-## Running with Docker
+## Known Limitations & Design Boundaries (Phase 3)
 
-```bash
-docker-compose up --build
-```
-
----
-
-## Known Limitations (Phase 2)
-
-* **External References**: Only internal local `$ref` pointers (starting with `#/`) are resolved. External URL references are rejected with an explicit error.
-* **Specification Version**: Exclusively supports OpenAPI 3.x. Swagger 2.0 specifications are rejected.
+* **Static Security Modeling Only**: The catalogue contains abstract test definitions and mutation strategies. It does **not** generate executable attack payloads (e.g. SQLi/XSS strings).
+* **No Test Execution**: Does not make network calls or execute HTTP requests against target servers.
+* **No OWASP Finding Classification**: Test categories are generic functional categories (`AUTHENTICATION`, `AUTHORIZATION`, `INPUT_VALIDATION`), not OWASP API Top 10 vulnerability classifications.
 
 ---
 
@@ -226,6 +184,7 @@ docker-compose up --build
 
 * **Phase 1**: Project Foundation & Repository Readiness (Done)
 * **Phase 2**: OpenAPI/Swagger Intelligence & Ingestion Layer (Done)
-* **Phase 3**: Security Test-Case Modeling & Generation (Future)
-* **Phase 4**: Sandboxed Execution Engine (Future)
-* **Phase 5**: Response Analysis & Vulnerability Reporting (Future)
+* **Phase 3**: Security Test Model & Test Catalogue (Done)
+* **Phase 4**: Security Test Generation & Payload Reasoning (Future)
+* **Phase 5**: Execution Engine & Sandbox Execution (Future)
+* **Phase 6**: Response Analysis & Vulnerability Reporting (Future)

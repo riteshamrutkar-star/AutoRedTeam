@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from app.api.routes.health import router as health_router
+from app.api.routes.security_tests import router as security_tests_router
 from app.api.routes.specifications import router as specs_router
 from app.core.config import settings
 from app.core.exceptions import OpenAPIException
@@ -48,6 +49,7 @@ async def openapi_exception_handler(request: Request, exc: OpenAPIException) -> 
 # Include routers
 app.include_router(health_router)
 app.include_router(specs_router)
+app.include_router(security_tests_router)
 
 
 @app.get("/", tags=["System"])
