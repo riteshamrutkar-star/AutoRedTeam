@@ -6,13 +6,14 @@ Autonomous LLM-based API security testing and red-team research framework.
 
 ## Overview
 
-AutoRedTeam is an autonomous LLM red-teaming research prototype designed to ingest API specifications, normalize them into structured domain models, model security tests, generate concrete test plans using LLM reasoning, and execute test plans safely against explicitly registered, controlled target environments.
+AutoRedTeam is an autonomous LLM red-teaming research prototype designed to ingest API specifications, normalize them into structured domain models, model security tests, generate concrete test plans using LLM reasoning, execute test plans safely against explicitly registered targets, and perform deterministic evidence analysis and OWASP API Top 10 (2023) vulnerability classification.
 
 * **Phase 1**: Project Foundation & Repository Readiness (Completed)
 * **Phase 2**: OpenAPI/Swagger Intelligence & Ingestion Layer (Completed)
 * **Phase 3**: Security Test Model & Test Catalogue (Completed)
 * **Phase 4**: LLM Security Test-Generation Agent (Completed)
 * **Phase 5**: Controlled Security Test Execution Engine (Completed)
+* **Phase 6**: Vulnerability Detection, Evidence Analysis & OWASP Mapping (Completed)
 
 ---
 
@@ -37,11 +38,17 @@ OpenAPI Spec (JSON/YAML)
          ↓
   Execution Policy & SSRF Guard (policy.py - Phase 5)
          ↓
-  Registered Controlled Target (target_registry.py - Phase 5)
-         ↓
   Streamed Async HTTP Client against Target (executor.py - Phase 5)
          ↓
-  Structured Execution Evidence / ExecutionResult (Phase 5)
+  ExecutionResult Evidence (Phase 5)
+         ↓
+  Evidence Analyzer & Rules Engine (analyzer.py - Phase 6)
+         ↓
+  OWASP API Security Top 10 (2023) Mapper (owasp_mapper.py - Phase 6)
+         ↓
+  Deterministic Severity & Confidence Engines (severity.py, confidence.py - Phase 6)
+         ↓
+  Machine-Readable SecurityFinding Output (Phase 6)
 ```
 
 ---
@@ -84,6 +91,14 @@ OpenAPI Spec (JSON/YAML)
 * **Symbolic Authentication**: Uses symbolic target-mapped references (e.g. `TEST_TOKEN_USER`, `TEST_TOKEN_ADMIN`).
 * **Execution API Endpoints**: `POST /api/v1/executions` and `GET /api/v1/targets`.
 
+### Phase 6: Vulnerability Detection & OWASP 2023 Mapping
+* **Evidence-Driven Classification**: Evaluates observed HTTP response evidence against expected security behaviors using 100% deterministic rule logic (`AuthenticationRule`, `AuthorizationRule`, `PropertyAccessRule`, `InputValidationRule`).
+* **OWASP API Security Top 10 — 2023 Mapping**: Maps verified findings to official OWASP API Top 10 (2023 Edition) categories (`API1:2023` to `API10:2023`).
+* **Explicit Finding Statuses**: `CONFIRMED`, `SUSPECTED`, `INCONCLUSIVE`, `NEGATIVE`. HTTP 500 errors without security evidence evaluate to `INCONCLUSIVE`.
+* **Deterministic Severity Matrix**: Derives severity (`INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) independently from risk impact, security boundary crossed, and data sensitivity.
+* **Deterministic Confidence Factors**: Calculates confidence score (0.0 to 1.0) derived from evidence strength, behavior consistency, test specificity, and ambiguity penalties.
+* **Analysis API Endpoints**: `POST /api/v1/security-analysis/analyze` and `GET /api/v1/security-analysis/owasp`.
+
 ---
 
 ## Directory Layout
@@ -100,6 +115,7 @@ AutoRedTeam/
 │   │       ├── executions.py
 │   │       ├── health.py
 │   │       ├── llm.py
+│   │       ├── security_analysis.py
 │   │       ├── security_tests.py
 │   │       └── specifications.py
 │   ├── core/
@@ -110,6 +126,7 @@ AutoRedTeam/
 │   ├── schemas/
 │   │   ├── __init__.py
 │   │   ├── execution.py
+│   │   ├── finding.py
 │   │   ├── generated_test.py
 │   │   ├── security_test.py
 │   │   └── spec.py
@@ -134,6 +151,19 @@ AutoRedTeam/
 │       │   ├── normalizer.py
 │       │   ├── resolver.py
 │       │   └── validator.py
+│       ├── security_analysis/
+│       │   ├── __init__.py
+│       │   ├── analyzer.py
+│       │   ├── confidence.py
+│       │   ├── owasp_mapper.py
+│       │   ├── severity.py
+│       │   └── rules/
+│       │       ├── __init__.py
+│       │       ├── authentication.py
+│       │       ├── authorization.py
+│       │       ├── base.py
+│       │       ├── input_validation.py
+│       │       └── property_access.py
 │       └── security_tests/
 │           ├── __init__.py
 │           ├── applicability.py
@@ -143,6 +173,7 @@ AutoRedTeam/
 │   ├── __init__.py
 │   ├── conftest.py
 │   ├── harness.py
+│   ├── test_analysis_routes.py
 │   ├── test_applicability.py
 │   ├── test_catalogue.py
 │   ├── test_execution_routes.py
@@ -155,8 +186,10 @@ AutoRedTeam/
 │   ├── test_loader.py
 │   ├── test_main.py
 │   ├── test_normalizer.py
+│   ├── test_owasp_mapper.py
 │   ├── test_prompts.py
 │   ├── test_resolver.py
+│   ├── test_security_analyzer.py
 │   ├── test_security_test_models.py
 │   ├── test_security_test_routes.py
 │   ├── test_spec_routes.py
@@ -208,65 +241,83 @@ ALLOWED_TARGET_HOSTS=localhost,127.0.0.1,testserver
 TARGET_VAMPI_URL=http://localhost:8001
 TARGET_JUICE_SHOP_URL=http://localhost:3000
 TARGET_DVWA_URL=http://localhost:8080
+
+# Classification Settings
+CLASSIFIER_VERSION=v1
+OWASP_API_TOP_10_VERSION=2023
 ```
 
 ---
 
 ## API Usage Examples
 
-### 1. List Registered Controlled Targets
+### 1. Get OWASP API Top 10 (2023) Taxonomy Definitions
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/targets" \
+curl -X GET "http://localhost:8000/api/v1/security-analysis/owasp" \
   -H "accept: application/json"
 ```
 
-### 2. Execute a Generated Security Test
+### 2. Analyze Execution Evidence & Generate Finding
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/executions" \
+curl -X POST "http://localhost:8000/api/v1/security-analysis/analyze" \
   -H "Content-Type: application/json" \
   -d '{
-    "target_id": "vampi-local",
-    "generated_test": { ... }
+    "generated_test": { ... },
+    "execution_result": { ... }
   }'
 ```
 
-**Example Response**:
+**Example Output**:
 
 ```json
 {
-  "execution_id": "exec_a1b2c3d4e5f6",
-  "target_id": "vampi-local",
+  "finding_id": "fnd_a1b2c3d4e5f6",
+  "execution_id": "exec_12345",
   "generated_test_id": "gen_users_GET_AUTH-001",
-  "status": "COMPLETED",
-  "started_at": "2026-08-12T20:20:00Z",
-  "completed_at": "2026-08-12T20:20:00.120Z",
-  "duration_ms": 120.0,
-  "request_evidence": {
-    "method": "GET",
-    "target_id": "vampi-local",
-    "path": "/users",
-    "headers": {
-      "Accept": "application/json",
-      "Authorization": "[REDACTED]"
-    }
+  "template_id": "AUTH-001",
+  "target_id": "vampi-local",
+  "endpoint": "/users",
+  "http_method": "GET",
+  "status": "CONFIRMED",
+  "title": "Broken Authentication",
+  "description": "Endpoint returned successful HTTP 200 response for an unauthenticated request.",
+  "category": "Broken Authentication",
+  "owasp": {
+    "taxonomy": "OWASP_API_TOP_10_2023",
+    "category_id": "API2:2023",
+    "category_name": "Broken Authentication",
+    "rationale": "Endpoint failed to enforce authentication requirement on protected resource.",
+    "secondary_categories": []
   },
-  "response_evidence": {
-    "status_code": 401,
-    "headers": {
-      "Content-Type": "application/json"
+  "severity": "HIGH",
+  "severity_rationale": "Crossed authentication boundary, permitting unauthenticated access to protected endpoint.",
+  "confidence": 0.98,
+  "confidence_factors": {
+    "evidence_strength": "STRONG",
+    "behavior_consistency": 1.0,
+    "test_specificity": 1.0,
+    "expected_behavior_match": 0.8,
+    "ambiguity_penalty": 0.0,
+    "overall_score": 0.98
+  },
+  "evidence": {
+    "execution_id": "exec_12345",
+    "status_code": 200,
+    "request_summary": { ... },
+    "response_summary": {
+      "status_code": 200,
+      "body_size": 120,
+      "final_url_host": "localhost",
+      "truncated": false
     },
-    "body": "{\"error\": \"Unauthorized\"}",
-    "body_size": 25,
-    "duration_ms": 115.0,
-    "final_url_host": "localhost",
-    "truncated": false
+    "expected_status_codes": [401],
+    "observed_indicators": ["HTTP_200_UNAUTHENTICATED_ACCESS", "AUTHENTICATION_BOUNDARY_BYPASS"]
   },
-  "policy_decision": {
-    "allowed": true,
-    "reason": "Execution request satisfies all safety policy rules."
-  }
+  "detection_reason": "Endpoint failed to enforce authentication requirement on protected resource.",
+  "remediation_guidance": "Apply consistent authentication controls across all endpoints and properly validate access tokens.",
+  "classifier_version": "v1"
 }
 ```
 
@@ -282,11 +333,11 @@ pytest
 
 ---
 
-## Known Limitations & Safety Boundaries (Phase 5)
+## Known Limitations & Safety Boundaries (Phase 6)
 
-* **No Vulnerability Classification**: Execution results contain raw observations (`status_code`, `response_evidence`). The executor does **not** classify responses as vulnerabilities (e.g. `SQLi`, `BOLA`).
-* **Controlled Target Scope**: Execution is strictly restricted to pre-registered target IDs (`target_id`). Arbitrary public URLs, network scanning, or external targets are rejected by safety policies.
-* **No Container Orchestration / Tool Manipulation**: Phase 5 does not provision arbitrary Docker containers or execute shell commands.
+* **No Adaptive Retesting / Multi-Round Feedback Loop**: Phase 6 processes single-pass execution evidence.
+* **Deterministic Rules Only**: Classification decisions are grounded strictly in evidence analysis without LLM override.
+* **No Database Persistence / Reporting UI**: Findings are output as machine-readable JSON objects without web dashboard UIs or database persistence.
 
 ---
 
@@ -297,4 +348,4 @@ pytest
 * **Phase 3**: Security Test Model & Test Catalogue (Done)
 * **Phase 4**: LLM Security Test-Generation Agent (Done)
 * **Phase 5**: Controlled Security Test Execution Engine (Done)
-* **Phase 6**: Response Analysis & Vulnerability Reporting (Future)
+* **Phase 6**: Vulnerability Detection, Evidence Analysis & OWASP Mapping (Done)

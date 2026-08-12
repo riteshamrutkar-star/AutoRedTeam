@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from app.api.routes.executions import router as executions_router
 from app.api.routes.health import router as health_router
 from app.api.routes.llm import router as llm_router
+from app.api.routes.security_analysis import router as security_analysis_router
 from app.api.routes.security_tests import router as security_tests_router
 from app.api.routes.specifications import router as specs_router
 from app.core.config import settings
@@ -54,6 +55,7 @@ app.include_router(specs_router)
 app.include_router(security_tests_router)
 app.include_router(llm_router)
 app.include_router(executions_router, prefix="/api/v1")
+app.include_router(security_analysis_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["System"])

@@ -38,5 +38,9 @@ class Settings(BaseSettings):
     TARGET_JUICE_SHOP_URL: str = "http://localhost:3000"
     TARGET_DVWA_URL: str = "http://localhost:8080"
 
+    # Vulnerability Classification Settings
+    CLASSIFIER_VERSION: str = "v1"
+    OWASP_API_TOP_10_VERSION: str = "2023"
+
 
 settings = Settings()
