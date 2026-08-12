@@ -25,5 +25,18 @@ class Settings(BaseSettings):
     LLM_TEMPERATURE: float = 0.2
     LLM_MAX_TOKENS: int = 2048
 
+    # Controlled Execution Settings
+    EXECUTION_TIMEOUT_SECONDS: int = 10
+    MAX_REQUEST_BODY_BYTES: int = 65536  # 64 KB limit
+    MAX_RESPONSE_BYTES: int = 1048576    # 1 MB limit
+    FOLLOW_REDIRECTS: bool = False
+    MAX_REDIRECTS: int = 0
+    ALLOWED_TARGET_HOSTS: str = "localhost,127.0.0.1,testserver"
+
+    # Registered Target Base URLs
+    TARGET_VAMPI_URL: str = "http://localhost:8001"
+    TARGET_JUICE_SHOP_URL: str = "http://localhost:3000"
+    TARGET_DVWA_URL: str = "http://localhost:8080"
+
 
 settings = Settings()

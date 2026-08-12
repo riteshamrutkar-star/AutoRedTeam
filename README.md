@@ -6,12 +6,13 @@ Autonomous LLM-based API security testing and red-team research framework.
 
 ## Overview
 
-AutoRedTeam is an autonomous LLM red-teaming research prototype designed to ingest API specifications, normalize them into structured domain models, model security tests, and instantiate concrete, declarative test plans using LLM reasoning.
+AutoRedTeam is an autonomous LLM red-teaming research prototype designed to ingest API specifications, normalize them into structured domain models, model security tests, generate concrete test plans using LLM reasoning, and execute test plans safely against explicitly registered, controlled target environments.
 
 * **Phase 1**: Project Foundation & Repository Readiness (Completed)
 * **Phase 2**: OpenAPI/Swagger Intelligence & Ingestion Layer (Completed)
 * **Phase 3**: Security Test Model & Test Catalogue (Completed)
 * **Phase 4**: LLM Security Test-Generation Agent (Completed)
+* **Phase 5**: Controlled Security Test Execution Engine (Completed)
 
 ---
 
@@ -26,13 +27,21 @@ OpenAPI Spec (JSON/YAML)
          ↓
   ApplicableTestResult Candidates (Phase 3)
          ↓
-  Focused Prompt Builder (prompts.py)
+  Focused Prompt Builder (prompts.py - Phase 4)
          ↓
-  Framework-Independent LLM Provider (Ollama / Mock)
+  Framework-Independent LLM Provider (Ollama / Mock - Phase 4)
          ↓
-  Post-LLM Anti-Hallucination Validator (generator.py)
+  Post-LLM Anti-Hallucination Validator (generator.py - Phase 4)
          ↓
-  GeneratedSecurityTest (Phase 4)
+  GeneratedSecurityTest (Phase 4) + target_id
+         ↓
+  Execution Policy & SSRF Guard (policy.py - Phase 5)
+         ↓
+  Registered Controlled Target (target_registry.py - Phase 5)
+         ↓
+  Streamed Async HTTP Client against Target (executor.py - Phase 5)
+         ↓
+  Structured Execution Evidence / ExecutionResult (Phase 5)
 ```
 
 ---
@@ -67,6 +76,14 @@ OpenAPI Spec (JSON/YAML)
 * **Experiment Metadata & Confidence**: Records provider, model, prompt version, schema version, generation timestamp, and model-reported generation confidence score.
 * **LLM API Endpoints**: `POST /api/v1/security-tests/generate` and `GET /api/v1/llm/health`.
 
+### Phase 5: Controlled Security Test Execution Engine
+* **Target Allowlist Registry**: Manages registered, controlled evaluation target environments (`vampi-local`, `juice-shop-local`, `dvwa-local`). Validates base URLs at startup to ensure scheme is `http`/`https` and host is within allowed scope (`localhost`, `127.0.0.1`, `testserver`), rejecting embedded credentials.
+* **Centralized Safety Policy & SSRF Guard**: Re-validates resolved URL before every request. Rejects absolute URLs in path, scheme-relative URLs (`//`), authority changes (`@`), path traversal (`..`), disallowed HTTP methods, and external redirects.
+* **Pre-flight & Streamed Resource Caps**: Enforces `MAX_REQUEST_BODY_BYTES` before sending requests and `MAX_RESPONSE_BYTES` via streamed chunk reading (`aiter_bytes`), preventing memory exhaustion.
+* **Header & Body Redaction**: Automatically redacts sensitive headers (`Authorization`, `Cookie`, `Set-Cookie`, `X-API-Key`) and body credential fields in logged evidence.
+* **Symbolic Authentication**: Uses symbolic target-mapped references (e.g. `TEST_TOKEN_USER`, `TEST_TOKEN_ADMIN`).
+* **Execution API Endpoints**: `POST /api/v1/executions` and `GET /api/v1/targets`.
+
 ---
 
 ## Directory Layout
@@ -80,6 +97,7 @@ AutoRedTeam/
 │   │   ├── __init__.py
 │   │   └── routes/
 │   │       ├── __init__.py
+│   │       ├── executions.py
 │   │       ├── health.py
 │   │       ├── llm.py
 │   │       ├── security_tests.py
@@ -91,11 +109,18 @@ AutoRedTeam/
 │   │   └── logging.py
 │   ├── schemas/
 │   │   ├── __init__.py
+│   │   ├── execution.py
 │   │   ├── generated_test.py
 │   │   ├── security_test.py
 │   │   └── spec.py
 │   └── services/
 │       ├── __init__.py
+│       ├── execution/
+│       │   ├── __init__.py
+│       │   ├── executor.py
+│       │   ├── policy.py
+│       │   ├── request_builder.py
+│       │   └── target_registry.py
 │       ├── llm/
 │       │   ├── __init__.py
 │       │   ├── generator.py
@@ -117,8 +142,12 @@ AutoRedTeam/
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py
+│   ├── harness.py
 │   ├── test_applicability.py
 │   ├── test_catalogue.py
+│   ├── test_execution_routes.py
+│   ├── test_execution_safety.py
+│   ├── test_executor.py
 │   ├── test_generator.py
 │   ├── test_generator_routes.py
 │   ├── test_health.py
@@ -166,53 +195,86 @@ OLLAMA_MODEL=llama3.2
 LLM_TIMEOUT_SECONDS=30
 LLM_TEMPERATURE=0.2
 LLM_MAX_TOKENS=2048
+
+# Controlled Security Execution Settings
+EXECUTION_TIMEOUT_SECONDS=10
+MAX_REQUEST_BODY_BYTES=65536
+MAX_RESPONSE_BYTES=1048576
+FOLLOW_REDIRECTS=false
+MAX_REDIRECTS=0
+ALLOWED_TARGET_HOSTS=localhost,127.0.0.1,testserver
+
+# Target Base URLs
+TARGET_VAMPI_URL=http://localhost:8001
+TARGET_JUICE_SHOP_URL=http://localhost:3000
+TARGET_DVWA_URL=http://localhost:8080
 ```
 
 ---
 
 ## API Usage Examples
 
-### 1. Check LLM Provider Health
+### 1. List Registered Controlled Targets
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/llm/health" \
+curl -X GET "http://localhost:8000/api/v1/targets" \
   -H "accept: application/json"
+```
+
+### 2. Execute a Generated Security Test
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/executions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_id": "vampi-local",
+    "generated_test": { ... }
+  }'
 ```
 
 **Example Response**:
 
 ```json
 {
-  "status": "ok",
-  "provider": "mock",
-  "model": "mock-v1",
-  "available": true
+  "execution_id": "exec_a1b2c3d4e5f6",
+  "target_id": "vampi-local",
+  "generated_test_id": "gen_users_GET_AUTH-001",
+  "status": "COMPLETED",
+  "started_at": "2026-08-12T20:20:00Z",
+  "completed_at": "2026-08-12T20:20:00.120Z",
+  "duration_ms": 120.0,
+  "request_evidence": {
+    "method": "GET",
+    "target_id": "vampi-local",
+    "path": "/users",
+    "headers": {
+      "Accept": "application/json",
+      "Authorization": "[REDACTED]"
+    }
+  },
+  "response_evidence": {
+    "status_code": 401,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": "{\"error\": \"Unauthorized\"}",
+    "body_size": 25,
+    "duration_ms": 115.0,
+    "final_url_host": "localhost",
+    "truncated": false
+  },
+  "policy_decision": {
+    "allowed": true,
+    "reason": "Execution request satisfies all safety policy rules."
+  }
 }
-```
-
-### 2. Generate Security Test Plans
-
-```bash
-# Parse spec
-curl -X POST "http://localhost:8000/api/v1/specifications/parse" \
-  -F "file=@tests/fixtures/petstore_openapi.yaml" > spec.json
-
-# Get applicable test candidates
-curl -X POST "http://localhost:8000/api/v1/security-tests/applicable" \
-  -H "Content-Type: application/json" \
-  -d @spec.json > candidates.json
-
-# Generate concrete security test plans using configured LLM
-curl -X POST "http://localhost:8000/api/v1/security-tests/generate" \
-  -H "Content-Type: application/json" \
-  -d "{\"spec\": $(cat spec.json), \"applicable_tests\": $(cat candidates.json)}"
 ```
 
 ---
 
 ## Running Tests
 
-Execute the complete test suite (runs offline using `MockLLMProvider`):
+Execute the complete test suite (runs offline using `MockLLMProvider` and isolated `harness_app`):
 
 ```bash
 pytest
@@ -220,12 +282,11 @@ pytest
 
 ---
 
-## Known Limitations & Safety Boundaries (Phase 4)
+## Known Limitations & Safety Boundaries (Phase 5)
 
-* **No Execution**: Generated tests are declarative test plans (`GeneratedSecurityTest`). They are **not** executed against any target application in Phase 4.
-* **Bounded Generation**: Test generation is strictly constrained by the candidate `ApplicableTestResult` list and target `NormalizedApiSpec`. The LLM cannot invent un-declared endpoints, parameters, or schema properties.
-* **Model Confidence**: The `confidence` field represents model-reported generation confidence (0.0 to 1.0), NOT vulnerability probability.
-* **No OWASP Vulnerability Classification**: Test plans are classified by generic functional categories (`AUTHENTICATION`, `AUTHORIZATION`, `INPUT_VALIDATION`), not OWASP API Top 10 vulnerability findings.
+* **No Vulnerability Classification**: Execution results contain raw observations (`status_code`, `response_evidence`). The executor does **not** classify responses as vulnerabilities (e.g. `SQLi`, `BOLA`).
+* **Controlled Target Scope**: Execution is strictly restricted to pre-registered target IDs (`target_id`). Arbitrary public URLs, network scanning, or external targets are rejected by safety policies.
+* **No Container Orchestration / Tool Manipulation**: Phase 5 does not provision arbitrary Docker containers or execute shell commands.
 
 ---
 
@@ -235,5 +296,5 @@ pytest
 * **Phase 2**: OpenAPI/Swagger Intelligence & Ingestion Layer (Done)
 * **Phase 3**: Security Test Model & Test Catalogue (Done)
 * **Phase 4**: LLM Security Test-Generation Agent (Done)
-* **Phase 5**: Execution Engine & Sandbox Execution (Future)
+* **Phase 5**: Controlled Security Test Execution Engine (Done)
 * **Phase 6**: Response Analysis & Vulnerability Reporting (Future)
