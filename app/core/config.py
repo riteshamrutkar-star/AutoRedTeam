@@ -42,5 +42,13 @@ class Settings(BaseSettings):
     CLASSIFIER_VERSION: str = "v1"
     OWASP_API_TOP_10_VERSION: str = "2023"
 
+    # Adaptive Testing Loop Settings
+    ADAPTIVE_MAX_ITERATIONS: int = 5
+    ADAPTIVE_MAX_EXECUTIONS: int = 10
+    ADAPTIVE_MAX_GENERATED_TESTS: int = 10
+    ADAPTIVE_MAX_RUNTIME_SECONDS: int = 120
+    ADAPTIVE_MAX_FOLLOWUPS_PER_FINDING: int = 2
+    ADAPTIVE_CONFIRMATION_THRESHOLD: float = 0.90
+
 
 settings = Settings()

@@ -4,6 +4,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
+from app.api.routes.adaptive import router as adaptive_router
 from app.api.routes.executions import router as executions_router
 from app.api.routes.health import router as health_router
 from app.api.routes.llm import router as llm_router
@@ -56,6 +57,7 @@ app.include_router(security_tests_router)
 app.include_router(llm_router)
 app.include_router(executions_router, prefix="/api/v1")
 app.include_router(security_analysis_router, prefix="/api/v1")
+app.include_router(adaptive_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["System"])
