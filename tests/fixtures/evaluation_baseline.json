@@ -1,0 +1,17 @@
+{
+  "tool_name": "ZAP-Baseline",
+  "tool_version": "2.14.0",
+  "target_id": "vampi-local",
+  "started_at": "2026-08-12T10:00:00Z",
+  "completed_at": "2026-08-12T10:00:05Z",
+  "findings": [
+    {
+      "finding_id": "base_find_001",
+      "title": "Broken User Object Level Authorization",
+      "endpoint": "/users/{id}",
+      "method": "GET",
+      "category": "API1:2023",
+      "severity": "HIGH"
+    }
+  ]
+}

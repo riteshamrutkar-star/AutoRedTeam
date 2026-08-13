@@ -1,0 +1,30 @@
+{
+  "target_id": "vampi-local",
+  "scope_complete": true,
+  "vulnerabilities": [
+    {
+      "ground_truth_id": "gt_auth_001",
+      "target_id": "vampi-local",
+      "vulnerability_identifier": "BOLA_USERS_001",
+      "title": "Broken User Object Level Authorization",
+      "description": "User profile endpoint returns private user data without authorization check.",
+      "owasp_category": "API1:2023",
+      "severity": "HIGH",
+      "endpoint": "/users/{id}",
+      "method": "GET",
+      "aliases": ["BOLA", "Object Authorization"]
+    },
+    {
+      "ground_truth_id": "gt_auth_002",
+      "target_id": "vampi-local",
+      "vulnerability_identifier": "MISSING_AUTH_ADMIN_001",
+      "title": "Missing Authentication on Admin Endpoint",
+      "description": "Admin settings route accessible without token.",
+      "owasp_category": "API2:2023",
+      "severity": "CRITICAL",
+      "endpoint": "/admin/settings",
+      "method": "POST",
+      "aliases": ["Missing Auth", "Broken Authentication"]
+    }
+  ]
+}

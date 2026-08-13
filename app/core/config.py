@@ -50,5 +50,9 @@ class Settings(BaseSettings):
     ADAPTIVE_MAX_FOLLOWUPS_PER_FINDING: int = 2
     ADAPTIVE_CONFIRMATION_THRESHOLD: float = 0.90
 
+    # Evaluation Engine Settings
+    EVALUATION_VERSION: str = "v1"
+    METRIC_DEFINITION_VERSION: str = "v1"
+
 
 settings = Settings()
