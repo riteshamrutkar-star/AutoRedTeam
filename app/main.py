@@ -5,10 +5,12 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from app.api.routes.adaptive import router as adaptive_router
+from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.evaluation import router as evaluation_router
 from app.api.routes.executions import router as executions_router
 from app.api.routes.health import router as health_router
 from app.api.routes.llm import router as llm_router
+from app.api.routes.reporting import router as reporting_router
 from app.api.routes.security_analysis import router as security_analysis_router
 from app.api.routes.security_tests import router as security_tests_router
 from app.api.routes.specifications import router as specs_router
@@ -53,6 +55,7 @@ async def openapi_exception_handler(request: Request, exc: OpenAPIException) -> 
 
 # Include routers
 app.include_router(health_router)
+app.include_router(dashboard_router)
 app.include_router(specs_router)
 app.include_router(security_tests_router)
 app.include_router(llm_router)
@@ -60,6 +63,7 @@ app.include_router(executions_router, prefix="/api/v1")
 app.include_router(security_analysis_router, prefix="/api/v1")
 app.include_router(adaptive_router, prefix="/api/v1")
 app.include_router(evaluation_router, prefix="/api/v1")
+app.include_router(reporting_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["System"])
@@ -68,4 +72,5 @@ def root() -> dict[str, str]:
     return {
         "message": f"Welcome to {settings.APP_NAME}",
         "docs": "/docs",
+        "dashboard": "/dashboard",
     }

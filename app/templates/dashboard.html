@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoRedTeam — Security Testing & Research Dashboard</title>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-card: #1e293b;
+      --bg-input: #334155;
+      --border-color: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #a855f7;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding-bottom: 2rem;
+    }
+
+    /* Banners & Header */
+    .top-bar {
+      background-color: #0284c7;
+      color: white;
+      padding: 0.5rem 1.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .disclaimer-banner {
+      background-color: #451a03;
+      border-left: 4px solid var(--accent-amber);
+      color: #fef3c7;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.875rem;
+    }
+    header {
+      background-color: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: var(--accent-blue); }
+    
+    .context-pills { display: flex; gap: 0.75rem; font-size: 0.8125rem; }
+    .pill {
+      background: var(--bg-input);
+      padding: 0.25rem 0.625rem;
+      border-radius: 9999px;
+      color: var(--text-main);
+    }
+    .pill span { color: var(--text-muted); margin-right: 0.25rem; }
+
+    /* Nav Tabs */
+    nav.tabs {
+      display: flex;
+      background-color: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 1.5rem;
+      gap: 1.5rem;
+    }
+    nav.tabs button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.875rem 0;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    nav.tabs button.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+
+    /* Container & Layout */
+    .container { max-width: 1280px; margin: 1.5rem auto; padding: 0 1.5rem; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* KPI Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .kpi-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+    .kpi-card .label { font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+    .kpi-card .value { font-size: 1.5rem; font-weight: 700; }
+    .kpi-card .status-tag { font-size: 0.75rem; font-weight: 600; padding: 0.125rem 0.375rem; border-radius: 0.25rem; float: right; }
+    .tag-computed { background: #064e3b; color: #6ee7b7; }
+    .tag-undefined { background: #365314; color: #bef264; }
+    .tag-na { background: #334155; color: #94a3b8; }
+
+    /* Tables */
+    .table-container {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+    }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+    th { background-color: var(--bg-input); padding: 0.75rem 1rem; font-weight: 600; color: var(--text-muted); }
+    td { padding: 0.75rem 1rem; border-top: 1px solid var(--border-color); }
+    tr:hover { background-color: rgba(255,255,255,0.02); }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-confirmed { background: #7f1d1d; color: #fca5a5; }
+    .badge-suspected { background: #78350f; color: #fde68a; }
+    .badge-inconclusive { background: #334155; color: #cbd5e1; }
+    .badge-critical { background: #dc2626; color: white; }
+    .badge-high { background: #ea580c; color: white; }
+    .badge-medium { background: #d97706; color: white; }
+    .badge-low { background: #2563eb; color: white; }
+    .badge-active { background: #065f46; color: #a7f3d0; }
+    .badge-registered { background: #1e293b; color: #94a3b8; border: 1px solid var(--border-color); }
+
+    /* Bars */
+    .bar-bg { background: var(--bg-input); height: 8px; border-radius: 4px; overflow: hidden; width: 100%; margin-top: 0.25rem; }
+    .bar-fill { background: var(--accent-blue); height: 100%; }
+
+    /* Controls & Buttons */
+    .controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    select, button.btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    button.btn-primary { background: #0284c7; border-color: #0284c7; color: white; font-weight: 600; }
+
+    /* Modal */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; align-items: center; justify-content: center; }
+    .modal-content { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.5rem; width: 90%; max-width: 800px; max-height: 85vh; overflow-y: auto; padding: 1.5rem; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .close-btn { font-size: 1.5rem; background: none; border: none; color: var(--text-muted); cursor: pointer; }
+    pre { background: var(--bg-primary); padding: 0.75rem; border-radius: 0.375rem; font-size: 0.8125rem; overflow-x: auto; color: #a5f3fc; }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <div>AutoRedTeam — Research Reporting Engine</div>
+    <div id="eval-version-tag">Evaluation Version: v1</div>
+  </div>
+
+  <div class="disclaimer-banner">
+    <strong>Research Disclaimer:</strong> Absence of findings does not prove an API is secure. Results reflect automated security testing over defined OpenAPI specifications and controlled ground-truth datasets.
+  </div>
+
+  <header>
+    <div>
+      <h1>Security Research Dashboard</h1>
+      <p style="font-size: 0.8125rem; color: var(--text-muted);">Autonomous Red-Teaming & API Vulnerability Assessment</p>
+    </div>
+    <div class="context-pills">
+      <div class="pill"><span>Run:</span> <strong id="ctx-run-name">Loading...</strong></div>
+      <div class="pill"><span>Strategy:</span> <strong id="ctx-strategy">STATIC</strong></div>
+      <div class="pill"><span>Target:</span> <strong id="ctx-target">vampi-local</strong></div>
+      <div class="pill"><span>Spec:</span> <strong id="ctx-spec">PetStore API (v1.2)</strong></div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" onclick="switchTab('overview')">Overview</button>
+    <button onclick="switchTab('findings')">Findings</button>
+    <button onclick="switchTab('coverage')">Coverage</button>
+    <button onclick="switchTab('owasp')">OWASP Top 10</button>
+    <button onclick="switchTab('adaptive')">Adaptive Testing</button>
+    <button onclick="switchTab('comparison')">Comparison</button>
+    <button onclick="switchTab('export')">Export & Report</button>
+  </nav>
+
+  <div class="container">
+    
+    <!-- Tab 1: Overview -->
+    <div id="tab-overview" class="tab-content active">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="label">Discovered Vulnerabilities</div>
+          <div class="value" id="kpi-discovered">0</div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);" id="kpi-known-sub">out of 0 known</span>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Confirmed Findings</div>
+          <div class="value" id="kpi-confirmed">0</div>
+          <span style="font-size: 0.75rem; color: #fca5a5;" id="kpi-crit-sub">0 Critical / High</span>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Discovery Rate</div>
+          <span class="status-tag tag-computed" id="tag-disc-status">COMPUTED</span>
+          <div class="value" id="kpi-disc-rate">N/A</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">False-Positive Rate</div>
+          <span class="status-tag tag-na" id="tag-fp-status">N/A</span>
+          <div class="value" id="kpi-fp-rate">N/A</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Endpoint Coverage</div>
+          <span class="status-tag tag-computed" id="tag-cov-status">COMPUTED</span>
+          <div class="value" id="kpi-cov-pct">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Time to First Vulnerability</div>
+          <div class="value" id="kpi-ttfv">N/A</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Findings -->
+    <div id="tab-findings" class="tab-content">
+      <div class="controls">
+        <select id="filter-status" onchange="loadFindings()">
+          <option value="">All Statuses</option>
+          <option value="CONFIRMED">CONFIRMED</option>
+          <option value="SUSPECTED">SUSPECTED</option>
+          <option value="INCONCLUSIVE">INCONCLUSIVE</option>
+        </select>
+        <select id="filter-severity" onchange="loadFindings()">
+          <option value="">All Severities</option>
+          <option value="CRITICAL">CRITICAL</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="LOW">LOW</option>
+        </select>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Finding ID</th>
+              <th>Status</th>
+              <th>Severity</th>
+              <th>OWASP</th>
+              <th>Endpoint</th>
+              <th>Method</th>
+              <th>Title</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="findings-table-body">
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">No findings loaded</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 3: Coverage -->
+    <div id="tab-coverage" class="tab-content">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Tested</th>
+              <th>Total</th>
+              <th>Percentage</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="coverage-table-body">
+            <tr><td colspan="5">Loading coverage metrics...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 4: OWASP -->
+    <div id="tab-owasp" class="tab-content">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Category ID</th>
+              <th>Category Name</th>
+              <th>Detection Rule Status</th>
+              <th>Confirmed</th>
+              <th>Status Note</th>
+            </tr>
+          </thead>
+          <tbody id="owasp-table-body">
+            <tr><td colspan="5">Loading OWASP summary...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 5: Adaptive -->
+    <div id="tab-adaptive" class="tab-content">
+      <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="kpi-card">
+          <div class="label">Total Iterations</div>
+          <div class="value" id="ad-iters">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Follow-up Tests</div>
+          <div class="value" id="ad-followups">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Session Status</div>
+          <div class="value" id="ad-status" style="font-size: 1.1rem; color: var(--accent-blue);">N/A</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Stop Reason</div>
+          <div class="value" id="ad-stop-reason" style="font-size: 0.9rem; color: var(--text-muted);">N/A</div>
+        </div>
+      </div>
+
+      <h3 style="margin-bottom: 0.75rem; color: var(--accent-blue);">Adaptive Iteration Trace</h3>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Iter</th>
+              <th>Action</th>
+              <th>Target Endpoint</th>
+              <th>Template</th>
+              <th>Information Gain</th>
+              <th>Rationale</th>
+            </tr>
+          </thead>
+          <tbody id="adaptive-trace-body">
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No adaptive session loaded</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 6: Comparison -->
+    <div id="tab-comparison" class="tab-content">
+      <h3 style="margin-bottom: 0.75rem; color: var(--accent-blue);">Side-by-Side Strategy Comparison</h3>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Metric Name</th>
+              <th id="comp-run-a-name">Run A</th>
+              <th id="comp-run-b-name">Run B</th>
+              <th>Abs Diff</th>
+              <th>Rel Diff (%)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="comparison-table-body">
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No comparison run configured</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 7: Export -->
+    <div id="tab-export" class="tab-content">
+      <div class="kpi-card" style="margin-bottom: 1.5rem;">
+        <h3 style="color: var(--accent-blue); margin-bottom: 0.5rem;">Research Paper Export Center</h3>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Download complete machine-readable JSON research artifacts or CSV tables for paper baseline analysis.
+        </p>
+        <div style="display: flex; gap: 1rem;">
+          <a href="/api/v1/reporting/export/json" target="_blank" class="btn btn-primary" style="text-decoration: none;">Download JSON Export</a>
+          <a href="/api/v1/reporting/export/csv" target="_blank" class="btn" style="text-decoration: none;">Download Findings CSV</a>
+        </div>
+      </div>
+
+      <h4 style="margin-bottom: 0.5rem; color: var(--text-muted);">JSON Export Preview</h4>
+      <pre id="json-preview">// Loading JSON preview...</pre>
+    </div>
+
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal" id="finding-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title" style="color: var(--accent-blue);">Finding Details</h3>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; font-size: 0.875rem;">
+        <div><strong>Status:</strong> <span id="modal-status"></span></div>
+        <div><strong>Severity:</strong> <span id="modal-severity"></span></div>
+        <div><strong>OWASP:</strong> <span id="modal-owasp"></span></div>
+        <div><strong>Confidence Score:</strong> <span id="modal-confidence"></span></div>
+      </div>
+      
+      <div style="margin-bottom: 1rem;">
+        <h4 style="color: var(--text-muted); font-size: 0.8125rem;">Expected Behavior</h4>
+        <div id="modal-expected" style="font-size: 0.875rem; margin-top: 0.25rem;"></div>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <h4 style="color: var(--text-muted); font-size: 0.8125rem;">Observed Behavior & Evidence</h4>
+        <pre id="modal-observed"></pre>
+      </div>
+
+      <div>
+        <h4 style="color: var(--text-muted); font-size: 0.8125rem;">Remediation Guidance</h4>
+        <div id="modal-remediation" style="font-size: 0.875rem; margin-top: 0.25rem; color: var(--accent-green);"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activeFindings = [];
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tabId).classList.add('active');
+
+      if (tabId === 'findings') loadFindings();
+      if (tabId === 'coverage') loadCoverage();
+      if (tabId === 'owasp') loadOWASP();
+      if (tabId === 'adaptive') loadAdaptive();
+      if (tabId === 'comparison') loadComparison();
+      if (tabId === 'export') loadExportPreview();
+    }
+
+    async function loadSummary() {
+      try {
+        const res = await fetch('/api/v1/reporting/summary');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        document.getElementById('ctx-run-name').textContent = data.run_name;
+        document.getElementById('ctx-strategy').textContent = data.strategy;
+        document.getElementById('ctx-target').textContent = data.target_id;
+        document.getElementById('ctx-spec').textContent = (data.spec_title || 'API') + ' (' + (data.spec_version || 'v1') + ')';
+        document.getElementById('eval-version-tag').textContent = 'Evaluation Version: ' + data.evaluation_version;
+
+        document.getElementById('kpi-discovered').textContent = data.known_vulnerabilities_total > 0 ? (data.known_vulnerabilities_total - (data.discovery_rate.value !== null ? Math.round(data.known_vulnerabilities_total * (1 - data.discovery_rate.value)) : 0)) : 0;
+        document.getElementById('kpi-known-sub').textContent = 'out of ' + data.known_vulnerabilities_total + ' known vulnerabilities';
+        
+        document.getElementById('kpi-confirmed').textContent = data.confirmed_findings_count;
+        document.getElementById('kpi-crit-sub').textContent = data.critical_high_count + ' Critical / High';
+
+        if (data.discovery_rate.status === 'COMPUTED' && data.discovery_rate.value !== null) {
+          document.getElementById('kpi-disc-rate').textContent = (data.discovery_rate.value * 100).toFixed(1) + '%';
+          document.getElementById('tag-disc-status').textContent = 'COMPUTED';
+          document.getElementById('tag-disc-status').className = 'status-tag tag-computed';
+        } else {
+          document.getElementById('kpi-disc-rate').textContent = 'N/A';
+          document.getElementById('tag-disc-status').textContent = data.discovery_rate.status;
+          document.getElementById('tag-disc-status').className = 'status-tag tag-na';
+        }
+
+        if (data.false_positive_rate.status === 'COMPUTED' && data.false_positive_rate.value !== null) {
+          document.getElementById('kpi-fp-rate').textContent = (data.false_positive_rate.value * 100).toFixed(1) + '%';
+          document.getElementById('tag-fp-status').textContent = 'COMPUTED';
+          document.getElementById('tag-fp-status').className = 'status-tag tag-computed';
+        } else {
+          document.getElementById('kpi-fp-rate').textContent = 'N/A';
+          document.getElementById('tag-fp-status').textContent = data.false_positive_rate.status;
+          document.getElementById('tag-fp-status').className = 'status-tag tag-na';
+        }
+
+        if (data.endpoint_coverage && data.endpoint_coverage.value !== null) {
+          document.getElementById('kpi-cov-pct').textContent = (data.endpoint_coverage.value * 100).toFixed(1) + '%';
+        }
+
+        document.getElementById('kpi-ttfv').textContent = data.time_to_first_vulnerability_ms.value !== null ? data.time_to_first_vulnerability_ms.value.toFixed(0) + ' ms' : 'N/A';
+      } catch (e) {
+        console.error('Error loading summary:', e);
+      }
+    }
+
+    async function loadFindings() {
+      const statusFilter = document.getElementById('filter-status').value;
+      const sevFilter = document.getElementById('filter-severity').value;
+      
+      let url = '/api/v1/reporting/findings?';
+      if (statusFilter) url += 'status_filter=' + encodeURIComponent(statusFilter) + '&';
+      if (sevFilter) url += 'severity_filter=' + encodeURIComponent(sevFilter);
+
+      const res = await fetch(url);
+      if (!res.ok) return;
+      activeFindings = await res.json();
+
+      const tbody = document.getElementById('findings-table-body');
+      if (activeFindings.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">No matching findings</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = activeFindings.map((f, idx) => `
+        <tr>
+          <td><code>${escapeHtml(f.finding_id)}</code></td>
+          <td><span class="badge badge-${escapeHtml(f.status.toLowerCase())}">${escapeHtml(f.status)}</span></td>
+          <td><span class="badge badge-${escapeHtml(f.severity.toLowerCase())}">${escapeHtml(f.severity)}</span></td>
+          <td><code>${escapeHtml(f.owasp_category_id)}</code></td>
+          <td><code>${escapeHtml(f.endpoint)}</code></td>
+          <td><strong>${escapeHtml(f.http_method)}</strong></td>
+          <td>${escapeHtml(f.title)}</td>
+          <td><button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="showDetail(${idx})">View</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function showDetail(idx) {
+      const f = activeFindings[idx];
+      if (!f) return;
+      document.getElementById('modal-title').textContent = f.title;
+      document.getElementById('modal-status').textContent = f.status;
+      document.getElementById('modal-severity').textContent = f.severity;
+      document.getElementById('modal-owasp').textContent = f.owasp_category_id + ' (' + f.owasp_category_name + ')';
+      document.getElementById('modal-confidence').textContent = f.confidence_score.toFixed(2);
+      document.getElementById('modal-expected').textContent = f.expected_behavior;
+      document.getElementById('modal-observed').textContent = f.observed_behavior;
+      document.getElementById('modal-remediation').textContent = f.remediation_guidance;
+      document.getElementById('finding-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('finding-modal').style.display = 'none';
+    }
+
+    async function loadCoverage() {
+      const res = await fetch('/api/v1/reporting/coverage');
+      if (!res.ok) return;
+      const cov = await res.json();
+
+      const dims = [
+        ['Endpoint Coverage', cov.endpoint_coverage],
+        ['HTTP Method Coverage', cov.method_coverage],
+        ['Parameter Coverage', cov.parameter_coverage],
+        ['Request Body Field Coverage', cov.body_field_coverage],
+        ['Test Template Coverage', cov.template_coverage],
+        ['Security Category Coverage', cov.category_coverage]
+      ];
+
+      const tbody = document.getElementById('coverage-table-body');
+      tbody.innerHTML = dims.map(([label, item]) => {
+        const pctStr = item.percentage.value !== null ? (item.percentage.value * 100).toFixed(1) + '%' : 'N/A';
+        const fillWidth = item.percentage.value !== null ? (item.percentage.value * 100) : 0;
+        return `
+          <tr>
+            <td><strong>${escapeHtml(label)}</strong></td>
+            <td>${item.tested}</td>
+            <td>${item.total}</td>
+            <td>
+              ${pctStr}
+              <div class="bar-bg"><div class="bar-fill" style="width: ${fillWidth}%;"></div></div>
+            </td>
+            <td><span class="status-tag tag-${item.status.toLowerCase()}">${escapeHtml(item.status)}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function loadOWASP() {
+      const res = await fetch('/api/v1/reporting/summary');
+      const sumRes = await fetch('/api/v1/reporting/export/json');
+      if (!sumRes.ok) return;
+      const payload = await sumRes.json();
+      const owasp = payload.owasp_summary;
+
+      const tbody = document.getElementById('owasp-table-body');
+      tbody.innerHTML = owasp.categories.map(c => `
+        <tr>
+          <td><code>${escapeHtml(c.category_id)}</code></td>
+          <td>${escapeHtml(c.category_name)}</td>
+          <td><span class="badge ${c.has_active_detection_rule ? 'badge-active' : 'badge-registered'}">${c.has_active_detection_rule ? 'ACTIVE RULE' : 'REGISTERED TAXONOMY'}</span></td>
+          <td><strong>${c.confirmed_count}</strong></td>
+          <td style="font-size: 0.8125rem; color: var(--text-muted);">${escapeHtml(c.status_label)}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadAdaptive() {
+      const res = await fetch('/api/v1/reporting/adaptive');
+      if (!res.ok) return;
+      const ad = await res.json();
+
+      document.getElementById('ad-iters').textContent = ad.total_iterations;
+      document.getElementById('ad-followups').textContent = ad.followup_tests_count;
+      document.getElementById('ad-status').textContent = ad.status;
+      document.getElementById('ad-stop-reason').textContent = ad.stop_reason || 'None';
+
+      const tbody = document.getElementById('adaptive-trace-body');
+      if (!ad.trace || ad.trace.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No adaptive iterations recorded</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = ad.trace.map(t => `
+        <tr>
+          <td>${t.iteration}</td>
+          <td><span class="badge badge-medium">${escapeHtml(t.action)}</span></td>
+          <td><code>${escapeHtml(t.target_endpoint)}</code></td>
+          <td><code>${escapeHtml(t.selected_template_id || 'N/A')}</code></td>
+          <td>${t.information_gain_score.toFixed(2)}</td>
+          <td style="font-size: 0.8125rem;">${escapeHtml(t.rationale)}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadComparison() {
+      const res = await fetch('/api/v1/reporting/comparison');
+      const tbody = document.getElementById('comparison-table-body');
+
+      if (!res.ok) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No valid side-by-side comparison loaded</td></tr>';
+        return;
+      }
+      const comp = await res.json();
+
+      document.getElementById('comp-run-a-name').textContent = comp.run_a_name;
+      document.getElementById('comp-run-b-name').textContent = comp.run_b_name;
+
+      tbody.innerHTML = comp.metrics.map(m => `
+        <tr>
+          <td><strong>${escapeHtml(m.metric_name)}</strong></td>
+          <td>${m.run_a_value !== null ? m.run_a_value : 'N/A'}</td>
+          <td>${m.run_b_value !== null ? m.run_b_value : 'N/A'}</td>
+          <td>${m.absolute_difference !== null ? m.absolute_difference : 'N/A'}</td>
+          <td>${m.relative_difference !== null ? m.relative_difference + '%' : 'N/A'}</td>
+          <td><span class="status-tag tag-${m.status.toLowerCase()}">${escapeHtml(m.status)}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadExportPreview() {
+      const res = await fetch('/api/v1/reporting/export/json');
+      if (!res.ok) return;
+      const data = await res.json();
+      document.getElementById('json-preview').textContent = JSON.stringify(data, null, 2);
+    }
+
+    // Initial page load
+    loadSummary();
+  </script>
+</body>
+</html>
