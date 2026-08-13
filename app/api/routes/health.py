@@ -9,6 +9,7 @@ router = APIRouter()
 class HealthResponse(BaseModel):
     service_name: str
     status: str
+    version: str
     environment: str
 
 
@@ -18,5 +19,6 @@ def get_health() -> HealthResponse:
     return HealthResponse(
         service_name=settings.APP_NAME,
         status="ok",
+        version=settings.AUTOREDTEAM_VERSION,
         environment=settings.ENVIRONMENT,
     )

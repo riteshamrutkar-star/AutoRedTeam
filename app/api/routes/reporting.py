@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.schemas.evaluation import EvaluationInput, EvaluationResult, EvaluationStrategy
+from app.schemas.manifest import ResearchManifest
 from app.schemas.reporting import (
     AdaptiveTraceView,
     ComparisonView,
@@ -18,6 +19,7 @@ from app.services.reporting.comparison import build_comparison_view
 from app.services.reporting.dashboard import build_dashboard_summary
 from app.services.reporting.export import build_export_payload, generate_csv_export
 from app.services.reporting.findings import build_finding_views
+from app.services.reporting.manifest import build_research_manifest
 from app.services.reporting.metrics import build_coverage_view
 from app.services.reporting.store import evaluation_store
 
@@ -177,3 +179,15 @@ def export_csv_report() -> Response:
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="autoredteam_findings.csv"'},
     )
+
+
+@router.get(
+    "/reporting/manifest",
+    response_model=ResearchManifest,
+    summary="Get research reproducibility manifest",
+    description="Returns machine-readable manifest containing versioning metadata, LLM provider settings, target ID, and strategy configuration.",
+)
+def get_manifest() -> ResearchManifest:
+    """Get research reproducibility manifest."""
+    inp, res = _ensure_active_context()
+    return build_research_manifest(res, inp)
